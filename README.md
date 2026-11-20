@@ -141,9 +141,13 @@ The first test runs (executions 33, 34, 35, started through MCP) hung and had to
 |---|---|---|---|
 | a | 36 (run from the UI, schedule path) | `last_published_month` = 2026-10 | `No new month, nothing sent`; no Slack post, no HubSpot tasks |
 | b | 37 (manual) | `last_published_month` = 2026-09 | `is_new: true`; one Slack post; HubSpot full mode: 13 companies fetched, 12 in scope (1 with no Segment skipped), **0 tasks created, 12 skipped** by the duplicate guard; `last_published_month` updated to 2026-10 |
-| c | 40 (manual) | `last_published_month` = 2026-10 | `No new month, nothing sent`; Slack, HubSpot and Mark published did not run |
+| c | 40 (manual, mine) and 41 (owner, from the UI, schedule path) | `last_published_month` = 2026-10 | Both: `No new month, nothing sent`; Slack, HubSpot and Mark published did not run. Execution 41: `is_new: false`, 352 rows |
 
-Item counts per node, executions 37 and 40 (identical up to the guard): trigger 1, Settings 1, HTTP Request 1, Code 352, Upsert 352, Get ember rows 352, Get last published 1, Check new month 1, New month? 1. Execution 37 then: Run Slack briefing 1, HubSpot input 1, Run HubSpot signal tasks 1, Mark published 1. Execution 40 then: No new month 1. Every node ran once. Table rows: 352 (`rows_in_table`). After (b) and after (c) `last_published_month` read back as `2026-10`.
+Item counts per node, executions 37, 40 and 41 (identical up to the guard): trigger 1, Settings 1, HTTP Request 1, Code 352, Upsert 352, Get ember rows 352, Get last published 1, Check new month 1, New month? 1. Execution 37 then: Run Slack briefing 1, HubSpot input 1, Run HubSpot signal tasks 1, Mark published 1. Executions 40 and 41 then: No new month 1. Every node ran once. Table rows: 352 (`rows_in_table`). After (b) and after (c) `last_published_month` read back as `2026-10`.
+
+HubSpot sub-workflow, execution 39 (called by the sync in execution 37 at 13:50:58, full mode, success): Get all Ember rows 352, Get companies 13, Select companies 12, Segment briefs 4, Write talking point 4, Attach talking points 12, Decide who needs a task 12, Created and skipped 12, Run summary 1. Run summary: `test_mode` false, 13 fetched, 12 in scope, 1 skipped for a blank Segment, **0 tasks created, 12 skipped** (existing tasks for the same month subject). The Slack sub-workflow ran as execution 38 (success).
+
+**MCP status polling is unreliable.** While execution 37 was running, repeated status checks through the MCP tools kept returning `running`, so I reported it as stuck. The stored execution shows it finished normally: started 13:50:42, stopped 13:51:07 (25 s), status success, and `pipeline_state` was already back to 2026-10. Confirm a run from the execution record (status, stop time, per-node data) and the table state, not from a polling result alone.
 
 Known-good values still match: 2026-09 Clean share 73.86; 2026-10 Clean change -1.61; 2026-10 Solar change -2.62 (read from `ember_uk_monthly`, and the posted briefing says the same).
 
