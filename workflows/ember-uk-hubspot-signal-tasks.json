@@ -1,0 +1,373 @@
+{
+  "id": "yyzC9xwGgdR7M2rn",
+  "name": "Ember UK – HubSpot signal tasks",
+  "active": false,
+  "versionId": "75cabeea-76fd-448d-97fc-b8b9a3c8a231",
+  "activeVersionId": null,
+  "settings": { "executionOrder": "v1", "availableInMCP": true },
+  "nodes": [
+    {
+      "id": "86d0f021-e533-42be-a160-642c5736e37f",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 200],
+      "parameters": {}
+    },
+    {
+      "id": "146d5df4-974f-4025-b069-31280923a32c",
+      "name": "Mode: manual run",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [440, 200],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "tm-manual", "name": "test_mode", "value": true, "type": "boolean" },
+            { "id": "due-manual", "name": "due_in_days", "value": 3, "type": "number" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3c0c2d56-605d-41ca-8dd0-b78697a59e26",
+      "name": "Run settings",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "parameters": {}
+    },
+    {
+      "id": "8faf9122-2cf1-4b5d-9480-47b869530f90",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [200, 420],
+      "parameters": { "inputSource": "passthrough" }
+    },
+    {
+      "id": "aea60f12-27e4-49f3-a702-01f493e75def",
+      "name": "Mode: called by another workflow",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [440, 420],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tm-sub",
+              "name": "test_mode",
+              "value": "={{ $json.test_mode === true || $json.test_mode === \"true\" }}",
+              "type": "boolean"
+            },
+            { "id": "due-sub", "name": "due_in_days", "value": 3, "type": "number" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "daff2a78-f493-467e-a129-08efab220ea8",
+      "name": "Get all Ember rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [920, 300],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": { "__rl": true, "mode": "id", "value": "Xl0Nu3CRHruvXNfH", "cachedResultName": "ember_uk_monthly" },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "82751c19-0f06-41b3-8318-757e8c240603",
+      "name": "Pick signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const WANTED = ['Clean', 'Solar', 'Wind', 'Gas'];\nconst MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\n\nconst rows = $input.all().map((i) => i.json);\nif (rows.length === 0) {\n  throw new Error('ember_uk_monthly returned no rows');\n}\n\nconst months = rows\n  .map((r) => r.month)\n  .filter((m) => typeof m === 'string' && /^[0-9]{4}-[0-9]{2}$/.test(m))\n  .sort();\nif (months.length === 0) {\n  throw new Error('No valid YYYY-MM month values found in ember_uk_monthly');\n}\nconst latest = months[months.length - 1];\nconst current = rows.filter((r) => r.month === latest);\n\nconst signals = {};\nWANTED.forEach((name) => {\n  const matches = current.filter((r) => r.series === name);\n  if (matches.length !== 1) {\n    throw new Error('Expected exactly one ' + name + ' row for ' + latest + ', found ' + matches.length);\n  }\n  const r = matches[0];\n  if (typeof r.share_pct !== 'number' || typeof r.share_change_pts !== 'number') {\n    throw new Error(name + ' has a missing or non-numeric share_pct / share_change_pts for ' + latest);\n  }\n  signals[name] = { share_pct: r.share_pct, share_change_pts: r.share_change_pts };\n});\n\nconst year = latest.slice(0, 4);\nconst monthNum = parseInt(latest.slice(5, 7), 10);\nconst label = MONTH_NAMES[monthNum - 1] + ' ' + year;\n\nconst unsigned = (n) => String(n).replace(/^-/, '');\nconst allowed = [year, String(monthNum), latest.slice(5, 7)];\nWANTED.forEach((name) => {\n  allowed.push(unsigned(signals[name].share_pct));\n  allowed.push(unsigned(signals[name].share_change_pts));\n});\n\nreturn [{\n  json: {\n    month: latest,\n    month_label: label,\n    rows_read: rows.length,\n    rows_in_month: current.length,\n    signals: signals,\n    allowed_numbers: allowed\n  }\n}];"
+      }
+    },
+    {
+      "id": "4e20ab90-7d3f-43c9-bd78-391130519a4d",
+      "name": "Get Segment property definition",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [1400, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.hubapi.com/crm/v3/properties/companies/segment",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken"
+      },
+      "executeOnce": true,
+      "credentials": { "hubspotAppToken": { "id": "sDRYSdbKcrM8qHRR", "name": "HubSpot Sandbox" } }
+    },
+    {
+      "id": "739b2314-5e05-44a9-82d8-3ac0679e06c1",
+      "name": "Get companies",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [1640, 300],
+      "parameters": {
+        "resource": "company",
+        "operation": "getAll",
+        "authentication": "appToken",
+        "returnAll": true,
+        "options": {
+          "propertiesCollection": {
+            "propertiesValues": { "properties": ["name", "segment"], "propertyMode": "valueOnly" }
+          }
+        }
+      },
+      "executeOnce": true,
+      "credentials": { "hubspotAppToken": { "id": "sDRYSdbKcrM8qHRR", "name": "HubSpot Sandbox" } }
+    },
+    {
+      "id": "f7e541a1-0614-4f2b-bedd-aa95d129b68a",
+      "name": "Select companies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const EXPECTED = ['Solar customer', 'Battery storage prospect', 'EV fleet operator', 'Energy-intensive manufacturer'];\nconst testMode = $('Run settings').first().json.test_mode === true;\n\nconst def = $('Get Segment property definition').first().json;\nconst options = Array.isArray(def.options) ? def.options : [];\nconst valueToLabel = {};\nEXPECTED.forEach((label) => {\n  const opt = options.find((o) => o.label === label && o.hidden !== true);\n  if (!opt) {\n    throw new Error('HubSpot Segment property has no option labelled \"' + label + '\"');\n  }\n  valueToLabel[opt.value] = label;\n});\n\nconst raw = $input.all().map((i) => i.json);\nif (raw.length === 0) {\n  throw new Error('HubSpot returned no companies');\n}\n\nconst skippedBlank = [];\nconst companies = [];\nraw.forEach((c) => {\n  const props = c.properties || {};\n  const name = props.name && typeof props.name.value === 'string' ? props.name.value : '(no name)';\n  const seg = props.segment && typeof props.segment.value === 'string' ? props.segment.value.trim() : '';\n  if (c.companyId === undefined || c.companyId === null) {\n    throw new Error('Company without an id: ' + name);\n  }\n  if (seg === '') {\n    skippedBlank.push(name);\n    return;\n  }\n  if (!Object.prototype.hasOwnProperty.call(valueToLabel, seg)) {\n    throw new Error('Company \"' + name + '\" has an unrecognised Segment value: \"' + seg + '\"');\n  }\n  companies.push({ companyId: String(c.companyId), company_name: name, segment: valueToLabel[seg] });\n});\nif (companies.length === 0) {\n  throw new Error('No companies with a recognised Segment were found');\n}\n\ncompanies.sort((a, b) => (a.companyId.length - b.companyId.length) || a.companyId.localeCompare(b.companyId));\n\nlet selected = companies;\nif (testMode) {\n  const first = companies[0];\n  const second = companies.find((c) => c.segment !== first.segment);\n  if (!second) {\n    throw new Error('Test mode needs companies from two different segments');\n  }\n  selected = [first, second];\n}\n\nreturn selected.map((c) => ({\n  json: Object.assign({}, c, {\n    test_mode: testMode,\n    companies_fetched: raw.length,\n    companies_in_scope: companies.length,\n    skipped_blank: skippedBlank\n  })\n}));"
+      }
+    },
+    {
+      "id": "afa20898-2bc5-4b0f-9c0d-1d3053aa662a",
+      "name": "Segment briefs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2120, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const NL = String.fromCharCode(10);\nconst GUIDANCE = {\n  'Solar customer': 'This buyer already generates solar power. If the solar share is falling, the point is storage that shifts and stores their own generation, not more solar. Focus on the Solar figures.',\n  'Battery storage prospect': 'This buyer is considering batteries. Focus on price swings and gas exposure on the grid (the Gas figures, and the Clean and Wind figures if useful) and point to storage for flexibility and arbitrage.',\n  'EV fleet operator': 'This buyer runs electric vehicles. Focus on grid carbon and the timing of charging cost (the Clean figures, and Wind or Gas if useful) and point to smart and off-peak charging.',\n  'Energy-intensive manufacturer': 'This buyer has large energy bills. Focus on the Gas share and price exposure and point to long-term clean supply contracts and demand flexibility.'\n};\n\nconst sig = $('Pick signals').first().json;\nconst s = sig.signals;\nconst fmt = (name) => name + ': share ' + s[name].share_pct + '%, change ' + s[name].share_change_pts + ' percentage points';\nconst facts = [\n  'Month: ' + sig.month_label,\n  'Clean share of UK electricity generation: ' + s.Clean.share_pct + '%',\n  'Change in Clean share vs previous month: ' + s.Clean.share_change_pts + ' percentage points',\n  fmt('Solar'),\n  fmt('Wind'),\n  fmt('Gas')\n].join(NL);\n\nconst needed = [];\n$input.all().forEach((i) => {\n  if (!needed.includes(i.json.segment)) {\n    needed.push(i.json.segment);\n  }\n});\n\nreturn needed.map((segment) => {\n  if (!GUIDANCE[segment]) {\n    throw new Error('No guidance defined for segment ' + segment);\n  }\n  return {\n    json: {\n      segment: segment,\n      prompt: 'Segment: ' + segment + NL + 'Segment guidance: ' + GUIDANCE[segment] + NL + NL + 'Data:' + NL + facts + NL + NL + 'Write the talking point.'\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "f9595c34-96cb-48de-8476-c0ee94396a24",
+      "name": "Write talking point",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [2360, 300],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-sonnet-5-5" },
+        "messages": { "values": [{ "role": "user", "content": "={{ $json.prompt }}" }] },
+        "simplify": true,
+        "options": {
+          "includeMergedResponse": true,
+          "maxTokens": 1000,
+          "system": "You write one short sales talking point for a UK cleantech sales team, aimed at one customer segment, using UK grid data from Ember. The salesperson will use it when approaching companies in that segment.\nRules:\n- Maximum 2 sentences. Plain text only: no headings, bullets, quotation marks or line breaks.\n- Quote every figure exactly as it appears in the data you are given, digit for digit (for example 72.25%, never 72.3% or 72%). Do not round, convert, add, subtract or derive any number. Use only figures from the data; one or two are enough.\n- Use no digits other than figures from the data, plus the year in the month label. Write any other count in words.\n- Describe movement in words (up, down, rise, fall) using the signed figures provided.\n- Do not invent causes, forecasts, prices or statistics.\n- Follow the segment guidance. Work out what the movement means for this buyer and point to the product or conversation that addresses it. Do not recommend more of the thing that just fell; recommend what helps the customer cope with it."
+        }
+      },
+      "credentials": { "anthropicApi": { "id": "RcrQ6rXHU5JLxQIk", "name": "Anthropic account" } }
+    },
+    {
+      "id": "a1c75ea5-4170-4d2b-869a-d0a495de2eec",
+      "name": "Check talking points",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2600, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const signals = $('Pick signals').first().json;\nconst briefs = $('Segment briefs').all().map((i) => i.json);\nconst answers = $input.all().map((i) => i.json);\n\nif (answers.length !== briefs.length) {\n  throw new Error('Talking point check failed: expected ' + briefs.length + ' AI answers, got ' + answers.length);\n}\n\nconst problems = [];\nconst out = [];\nanswers.forEach((ai, idx) => {\n  const segment = briefs[idx].segment;\n  let text = ai.merged_response;\n  if (typeof text !== 'string' || text.trim() === '') {\n    const parts = Array.isArray(ai.content) ? ai.content : [];\n    text = parts.filter((p) => p && p.type === 'text').map((p) => (typeof p.text === 'string' ? p.text : '')).join('');\n  }\n  if (typeof text !== 'string' || text.trim() === '') {\n    problems.push(segment + ': the AI step returned no text');\n    return;\n  }\n  text = text.trim();\n\n  const sentences = text.split(/(?<=[.!?])\\s+/).filter((s) => s.trim().length > 0);\n  if (sentences.length > 2) {\n    problems.push(segment + ': ' + sentences.length + ' sentences, limit is 2');\n  }\n\n  const found = text.match(/[0-9]+(?:[.][0-9]+)?/g) || [];\n  const unexpected = found.filter((n) => !signals.allowed_numbers.includes(n));\n  if (unexpected.length > 0) {\n    problems.push(segment + ': numbers not in the supplied figures: ' + unexpected.join(', '));\n  }\n\n  out.push({ json: { segment: segment, talking_point: text, sentence_count: sentences.length } });\n});\n\nif (problems.length > 0) {\n  throw new Error('Talking point check failed: ' + problems.join(' | '));\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "12a71572-4bf5-4a9f-bb77-18c28d7b523a",
+      "name": "Attach talking points",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const NL = String.fromCharCode(10);\nconst companies = $('Select companies').all().map((i) => i.json);\nconst points = {};\n$input.all().forEach((i) => {\n  points[i.json.segment] = i.json.talking_point;\n});\nconst sig = $('Pick signals').first().json;\nconst dueDays = $('Run settings').first().json.due_in_days;\nif (typeof dueDays !== 'number' || dueDays < 0) {\n  throw new Error('due_in_days is missing or invalid');\n}\nconst subject = 'Market signal: ' + sig.month_label;\nconst due = new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000).toISOString();\n\nreturn companies.map((c) => {\n  if (!points[c.segment]) {\n    throw new Error('No talking point for segment ' + c.segment + ' (company ' + c.company_name + ')');\n  }\n  const body = points[c.segment] + NL + NL + 'Source: Ember monthly UK generation data';\n  return {\n    json: {\n      companyId: c.companyId,\n      company_name: c.company_name,\n      segment: c.segment,\n      subject: subject,\n      body: body,\n      due: due,\n      test_mode: c.test_mode\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "b37350bf-05c5-410a-accd-190d9be408a0",
+      "name": "List tasks on companies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [3080, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v4/associations/companies/tasks/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { inputs: $input.all().map((i) => ({ id: String(i.json.companyId) })) } }}"
+      },
+      "executeOnce": true,
+      "credentials": { "hubspotAppToken": { "id": "sDRYSdbKcrM8qHRR", "name": "HubSpot Sandbox" } }
+    },
+    {
+      "id": "7c220c35-a05c-4704-8c3e-fb7be2e008fb",
+      "name": "Collect task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3320, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const res = $input.first().json;\nconst ids = [];\n(res.results || []).forEach((r) => {\n  (r.to || []).forEach((t) => ids.push(String(t.toObjectId)));\n});\nif (ids.length === 0) {\n  return [{ json: { has_tasks: false, ids: [] } }];\n}\nconst chunks = [];\nfor (let i = 0; i < ids.length; i += 100) {\n  chunks.push(ids.slice(i, i + 100));\n}\nreturn chunks.map((c) => ({ json: { has_tasks: true, ids: c } }));"
+      }
+    },
+    {
+      "id": "7e8dc27a-8068-44a6-882f-33512dfca1f0",
+      "name": "Any existing tasks?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3560, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_tasks }}",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "c5074caf-e005-4244-bad0-41ff57ca0fb3",
+      "name": "Read task subjects",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [3800, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/tasks/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { properties: [\"hs_task_subject\"], inputs: $json.ids.map((id) => ({ id: String(id) })) } }}"
+      },
+      "credentials": { "hubspotAppToken": { "id": "sDRYSdbKcrM8qHRR", "name": "HubSpot Sandbox" } }
+    },
+    {
+      "id": "b45b659f-f049-4776-baf6-c7cadbf50666",
+      "name": "Decide who needs a task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4040, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const companies = $('Attach talking points').all().map((i) => i.json);\nconst listRes = $('List tasks on companies').first().json;\n\n(listRes.errors || []).forEach((e) => {\n  if (!/NO_ASSOCIATIONS/i.test(JSON.stringify(e))) {\n    throw new Error('Task association lookup returned an error: ' + JSON.stringify(e));\n  }\n});\n\nconst byCompany = {};\n(listRes.results || []).forEach((r) => {\n  byCompany[String(r.from && r.from.id)] = (r.to || []).map((t) => String(t.toObjectId));\n});\n\nlet readItems = [];\ntry {\n  readItems = $('Read task subjects').all();\n} catch (e) {\n  readItems = [];\n}\nconst subjectById = {};\nreadItems.forEach((it) => {\n  if (it.json.errors && it.json.errors.length > 0) {\n    throw new Error('Reading task subjects returned errors: ' + JSON.stringify(it.json.errors));\n  }\n  (it.json.results || []).forEach((r) => {\n    subjectById[String(r.id)] = r.properties ? r.properties.hs_task_subject : undefined;\n  });\n});\n\nreturn companies.map((c) => {\n  const ids = byCompany[c.companyId] || [];\n  ids.forEach((id) => {\n    if (!Object.prototype.hasOwnProperty.call(subjectById, id)) {\n      throw new Error('Task ' + id + ' on ' + c.company_name + ' could not be read, so duplicates cannot be ruled out');\n    }\n  });\n  const existing = ids.filter((id) => subjectById[id] === c.subject);\n  const payload = {\n    properties: {\n      hs_task_subject: c.subject,\n      hs_task_body: c.body,\n      hs_timestamp: c.due,\n      hs_task_status: 'NOT_STARTED',\n      hs_task_type: 'TODO'\n    },\n    associations: [\n      {\n        to: { id: c.companyId },\n        types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 192 }]\n      }\n    ]\n  };\n  return {\n    json: Object.assign({}, c, {\n      needs_task: existing.length === 0,\n      existing_task_ids: existing,\n      tasks_on_company: ids.length,\n      task_payload: payload\n    })\n  };\n});"
+      }
+    },
+    {
+      "id": "2e091d29-a7d3-40ef-bca5-d193f64218c9",
+      "name": "Needs a task?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [4280, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.needs_task }}",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "07cf8b7d-da4b-4c90-99fc-f7160c1908e2",
+      "name": "Create HubSpot task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [4520, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/tasks",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.task_payload }}"
+      },
+      "credentials": { "hubspotAppToken": { "id": "sDRYSdbKcrM8qHRR", "name": "HubSpot Sandbox" } }
+    },
+    {
+      "id": "0ce27415-ca31-41ac-8bfe-0fc557defeec",
+      "name": "Created and skipped",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [4760, 300],
+      "parameters": { "mode": "append" }
+    },
+    {
+      "id": "f7205a48-5db6-47b7-b281-58f48de6b8a4",
+      "name": "Run summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [5000, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const decisions = $('Decide who needs a task').all().map((i) => i.json);\nlet created = [];\ntry {\n  created = $('Create HubSpot task').all().map((i) => i.json);\n} catch (e) {\n  created = [];\n}\nconst need = decisions.filter((d) => d.needs_task);\nif (created.length !== need.length) {\n  throw new Error('Created ' + created.length + ' tasks but expected ' + need.length);\n}\nconst createdOut = need.map((d, idx) => {\n  if (!created[idx] || !created[idx].id) {\n    throw new Error('Task create for ' + d.company_name + ' returned no id');\n  }\n  return { company: d.company_name, segment: d.segment, task_id: String(created[idx].id), subject: d.subject, due: d.due };\n});\nconst sel = $('Select companies').first().json;\nconst points = {};\ndecisions.forEach((d) => { points[d.segment] = d.body; });\n\nreturn [{\n  json: {\n    test_mode: sel.test_mode,\n    month_subject: decisions.length > 0 ? decisions[0].subject : null,\n    companies_fetched: sel.companies_fetched,\n    companies_in_scope: sel.companies_in_scope,\n    skipped_blank_segment: sel.skipped_blank,\n    companies_processed: decisions.length,\n    tasks_created: createdOut.length,\n    created: createdOut,\n    skipped_existing: decisions.filter((d) => !d.needs_task).map((d) => ({ company: d.company_name, segment: d.segment, existing_task_ids: d.existing_task_ids })),\n    bodies_by_segment: points\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Mode: manual run", "type": "main", "index": 0 }]] },
+    "Mode: manual run": { "main": [[{ "node": "Run settings", "type": "main", "index": 0 }]] },
+    "Run settings": { "main": [[{ "node": "Get all Ember rows", "type": "main", "index": 0 }]] },
+    "When Executed by Another Workflow": { "main": [[{ "node": "Mode: called by another workflow", "type": "main", "index": 0 }]] },
+    "Mode: called by another workflow": { "main": [[{ "node": "Run settings", "type": "main", "index": 0 }]] },
+    "Get all Ember rows": { "main": [[{ "node": "Pick signals", "type": "main", "index": 0 }]] },
+    "Pick signals": { "main": [[{ "node": "Get Segment property definition", "type": "main", "index": 0 }]] },
+    "Get Segment property definition": { "main": [[{ "node": "Get companies", "type": "main", "index": 0 }]] },
+    "Get companies": { "main": [[{ "node": "Select companies", "type": "main", "index": 0 }]] },
+    "Select companies": { "main": [[{ "node": "Segment briefs", "type": "main", "index": 0 }]] },
+    "Segment briefs": { "main": [[{ "node": "Write talking point", "type": "main", "index": 0 }]] },
+    "Write talking point": { "main": [[{ "node": "Check talking points", "type": "main", "index": 0 }]] },
+    "Check talking points": { "main": [[{ "node": "Attach talking points", "type": "main", "index": 0 }]] },
+    "Attach talking points": { "main": [[{ "node": "List tasks on companies", "type": "main", "index": 0 }]] },
+    "List tasks on companies": { "main": [[{ "node": "Collect task ids", "type": "main", "index": 0 }]] },
+    "Collect task ids": { "main": [[{ "node": "Any existing tasks?", "type": "main", "index": 0 }]] },
+    "Any existing tasks?": {
+      "main": [
+        [{ "node": "Read task subjects", "type": "main", "index": 0 }],
+        [{ "node": "Decide who needs a task", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read task subjects": { "main": [[{ "node": "Decide who needs a task", "type": "main", "index": 0 }]] },
+    "Decide who needs a task": { "main": [[{ "node": "Needs a task?", "type": "main", "index": 0 }]] },
+    "Needs a task?": {
+      "main": [
+        [{ "node": "Create HubSpot task", "type": "main", "index": 0 }],
+        [{ "node": "Created and skipped", "type": "main", "index": 1 }]
+      ]
+    },
+    "Create HubSpot task": { "main": [[{ "node": "Created and skipped", "type": "main", "index": 0 }]] },
+    "Created and skipped": { "main": [[{ "node": "Run summary", "type": "main", "index": 0 }]] }
+  },
+  "meta": { "aiBuilderAssisted": true, "builderVariant": "mcp" }
+}

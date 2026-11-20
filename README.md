@@ -9,6 +9,7 @@ GTM automation on a self-hosted n8n: UK grid data from Ember becomes market sign
 | Ember UK – monthly sync | Published; schedule day 10 of each month, 09:00. **Draft now has the "Run Slack briefing" step; the active (scheduled) version does not yet** | `workflows/ember-uk-monthly-sync.json` (draft state) |
 | Ember UK – get month | Published (agent lookup tool). **Draft has the row-limit fix; the active version the agent uses does not yet** | `workflows/ember-uk-get-month.json` (draft state) |
 | **Ember UK – Slack briefing** (phase 1) | Tested, **unpublished**. Has two triggers: Manual and "When Executed by Another Workflow" | `workflows/ember-uk-slack-briefing.json` |
+| **Ember UK – HubSpot signal tasks** (phase 2) | Built; **test mode tested (2 companies), full run (12) not yet run**. Unpublished. Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
 
 **Draft vs active:** n8n runs the *active* (published) version for schedules and for the agent. Edits are saved as drafts until published. Publishing needs to be done by the owner; see "Pending publishes" below. The export files show the draft, which is what manual runs use.
 
@@ -107,6 +108,49 @@ Posted briefing:
 > Gas rose to a 25.82% share, up 1.8 percentage points.
 > Sales angle: Ask business buyers how exposed they are to gas-driven price swings and offer a long-term clean supply contract to steady their costs.
 
+## Phase 2: Ember UK – HubSpot signal tasks
+
+Turns the latest month's grid data into one talking point per customer segment and creates one follow-up task per company in the HubSpot sandbox (fake companies only).
+
+```
+Manual Trigger ------------> Mode: manual run (test_mode = true) ---------\
+                                                                          +-> Run settings
+When Executed by Another --> Mode: called by another workflow ------------/   (test_mode = false unless passed)
+  -> Get all Ember rows            Data table, Return All
+  -> Pick signals                  Code: latest month; Clean, Solar, Wind, Gas share + share_change_pts (individual sources only)
+  -> Get Segment property definition   HTTP: reads the dropdown's labels and internal values
+  -> Get companies                 HubSpot node, Return All, properties name + segment
+  -> Select companies              Code: maps segment values to labels; test mode = 1 company from each of 2 segments
+  -> Segment briefs                Code: one prompt per segment needed (2 in test mode, 4 in a full run)
+  -> Write talking point           Anthropic, claude-sonnet-5-5, one call per segment
+  -> Check talking points          Code: fails on >2 sentences or any number not in the data
+  -> Attach talking points         Code: title "Market signal: <Month Year>", body = talking point + source line, due in 3 days
+  -> List tasks on companies       HTTP: v4 associations batch read (tasks already on each company)
+  -> Any existing tasks? -> Read task subjects   HTTP: v3 tasks batch read (subjects)
+  -> Decide who needs a task       Code: skip a company if a task with the same title is already on it
+  -> Needs a task? -> Create HubSpot task        HTTP: POST /crm/v3/objects/tasks with the company association (type 192)
+  -> Created and skipped -> Run summary
+```
+
+Credentials (by name, none stored in nodes): `HubSpot Sandbox` (App Token), `Anthropic account`.
+
+### Design decisions
+
+- **Why HTTP for tasks.** The built-in HubSpot node has no Task resource; its only route is the deprecated v1 engagements API, which cannot search. Tasks use the CRM v3 objects API through the same `HubSpot Sandbox` credential (n8n's predefined credential type, no token in the node).
+- **Duplicate guard by association, not search.** HubSpot's search index lags by seconds, so a quick re-run could miss a task it had just created. Reading the company's associated tasks has no such lag. A task counts as a duplicate if it is on the same company and has the same title. Any unreadable associated task fails the run rather than risk a duplicate.
+- **Test mode defaults.** Manual Trigger sets `test_mode = true`. The "When Executed by Another Workflow" path sets it only if the caller passes boolean `true` or the string `"true"`; a missing or any other value gives `false`, so a scheduled run can never silently process just 2 companies.
+- **One talking point per segment**, reused for every company in that segment. Test mode only generates the segments it needs.
+- **Segment safety.** Companies with an empty Segment (the default "HubSpot" sample company) are skipped and listed in the run summary. A non-empty value that is not one of the four labels fails the run. The four labels and internal values are identical in this portal.
+- **Tasks are unassigned** (HubSpot accepts this).
+
+### Test results (execution 23 and 24, test mode, 2026-10)
+
+Signals match the known-good values: Clean 72.25 (change -1.61), Solar 5.38 (change -2.62), Wind 34.91 (-0.85), Gas 25.82 (+1.8). 352 rows read. 13 companies fetched, 12 in scope, 1 skipped (blank Segment).
+
+- Execution 23: 2 tasks created (Corvid Data Centres, Battery storage prospect; Meadowbank Farms, Solar customer), due 3 days out, associated with their companies.
+- Execution 24 (immediate re-run): 0 created, both skipped as existing. The association read also confirmed both tasks are linked to their companies.
+- The service key's scopes were sufficient for company read, property read, task read, association read and task create.
+
 ### Pending publishes (not done)
 
 n8n schedules and the agent run the active version, and these three have changes only in draft:
@@ -140,6 +184,7 @@ The first export of this workflow was rebuilt from the code I used to create it.
 ## Files
 
 - `workflows/ember-uk-slack-briefing.json`: current live export (import into n8n via Import from file)
+- `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; all 8 Code nodes and the system prompt were checked identical to the source submitted to n8n
 - `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: live exports of the existing workflows
 - Backups taken before edits:
   - `ember-uk-slack-briefing.backup-before-tweaks.json`: state before the "%" and channel-ID changes (hand-copied from the live output at the time, before the live-export rule)
