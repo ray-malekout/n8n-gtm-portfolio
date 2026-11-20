@@ -1,0 +1,115 @@
+{
+  "id": "D79IxkAzpmEklwwH",
+  "name": "Ember UK – Slack briefing",
+  "active": false,
+  "versionId": "4abb33b4-ff51-4554-9941-e3409b3a72b2",
+  "activeVersionId": null,
+  "settings": { "executionOrder": "v1", "availableInMCP": true },
+  "nodes": [
+    {
+      "id": "f8ca1844-99f4-438d-8977-65b14b8f925a",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {}
+    },
+    {
+      "id": "80ffe6ee-ba89-4963-9b0b-20dcb667a4ca",
+      "name": "Get all Ember rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [480, 300],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": { "__rl": true, "mode": "id", "value": "Xl0Nu3CRHruvXNfH", "cachedResultName": "ember_uk_monthly" },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "30d6216a-ed9d-46d1-b16b-0e413f5f1b12",
+      "name": "Pick signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const SOURCES = ['Bioenergy', 'Coal', 'Gas', 'Hydro', 'Nuclear', 'Other fossil', 'Solar', 'Wind'];\nconst MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];\nconst NL = String.fromCharCode(10);\n\nconst rows = $input.all().map((i) => i.json);\nif (rows.length === 0) {\n  throw new Error('ember_uk_monthly returned no rows');\n}\n\nconst months = rows\n  .map((r) => r.month)\n  .filter((m) => typeof m === 'string' && /^[0-9]{4}-[0-9]{2}$/.test(m))\n  .sort();\nif (months.length === 0) {\n  throw new Error('No valid YYYY-MM month values found in ember_uk_monthly');\n}\nconst latest = months[months.length - 1];\nconst current = rows.filter((r) => r.month === latest);\n\nconst clean = current.find((r) => r.series === 'Clean');\nif (!clean || typeof clean.share_pct !== 'number' || typeof clean.share_change_pts !== 'number') {\n  throw new Error('Clean row missing or has null values for ' + latest);\n}\n\nconst missing = SOURCES.filter((s) => !current.some((r) => r.series === s));\nif (missing.length > 0) {\n  throw new Error('Latest month ' + latest + ' is missing sources: ' + missing.join(', '));\n}\nconst movers = current\n  .filter((r) => SOURCES.includes(r.series))\n  .map((r) => {\n    if (typeof r.share_pct !== 'number' || typeof r.share_change_pts !== 'number') {\n      throw new Error('Null value for ' + r.series + ' in ' + latest);\n    }\n    return { series: r.series, share_pct: r.share_pct, share_change_pts: r.share_change_pts };\n  })\n  .sort((a, b) => Math.abs(b.share_change_pts) - Math.abs(a.share_change_pts) || a.series.localeCompare(b.series))\n  .slice(0, 3);\n\nconst year = latest.slice(0, 4);\nconst monthNum = parseInt(latest.slice(5, 7), 10);\nconst label = MONTH_NAMES[monthNum - 1] + ' ' + year;\n\nconst unsigned = (n) => String(n).replace(/^-/, '');\nconst allowed = [unsigned(clean.share_pct), unsigned(clean.share_change_pts), year, String(monthNum), latest.slice(5, 7)];\nmovers.forEach((m) => {\n  allowed.push(unsigned(m.share_pct));\n  allowed.push(unsigned(m.share_change_pts));\n});\n\nconst lines = [\n  'Month: ' + label,\n  'Clean share of UK electricity generation: ' + clean.share_pct + '%',\n  'Change in Clean share vs previous month: ' + clean.share_change_pts + ' percentage points',\n  'Three biggest movers among individual generation sources, by absolute change in share:'\n];\nmovers.forEach((m) => {\n  lines.push('- ' + m.series + ': share ' + m.share_pct + '%, change ' + m.share_change_pts + ' percentage points');\n});\n\nreturn [{\n  json: {\n    month: latest,\n    month_label: label,\n    rows_read: rows.length,\n    rows_in_month: current.length,\n    clean_share_pct: clean.share_pct,\n    clean_share_change_pts: clean.share_change_pts,\n    movers: movers,\n    allowed_numbers: allowed,\n    facts_text: lines.join(NL)\n  }\n}];"
+      }
+    },
+    {
+      "id": "5907ea63-a7e3-4394-abb9-e07f4af1d342",
+      "name": "Write briefing",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [960, 300],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-sonnet-5-5" },
+        "messages": {
+          "values": [
+            { "role": "user", "content": "=Write the briefing for the figures below.\n\n{{ $json.facts_text }}" }
+          ]
+        },
+        "simplify": true,
+        "options": {
+          "includeMergedResponse": true,
+          "maxTokens": 2000,
+          "system": "You write short market-signal briefings for a UK cleantech sales team, using UK grid data from Ember.\nRules:\n- Maximum 5 lines in total. Each line is one short sentence. No blank lines, no headings, no bullet characters.\n- Quote every figure exactly as it appears in the data you are given, digit for digit (for example 72.25, never 72.3 or 72). Do not round, convert, add, subtract or derive any number.\n- Use no digits other than figures from the data, plus the year given in the month label. Write any other count in words.\n- Describe movement in words (up, down, rise, fall) using the signed figures provided.\n- Do not invent causes, forecasts or statistics.\n- The final line must start with \"Sales angle:\" and give exactly one practical suggestion for how the sales team can use this signal.\n- The sales angle must follow logically from the signal. Work out what the movement means for a UK business buyer (cost, price volatility, reliability, flexibility) and suggest the product or conversation that addresses that problem. Do not recommend more of the thing that just fell; recommend what helps customers cope with it. For example, a fall in solar's share points to storage, flexibility and demand response, not to more solar. A rise in gas's share points to exposure to price swings, so suggest energy efficiency and long-term clean supply contracts, not gas. A rise in a clean source's share is a reason to talk about locking in clean supply or cleaner reporting for customers."
+        }
+      },
+      "credentials": { "anthropicApi": { "id": "RcrQ6rXHU5JLxQIk", "name": "Anthropic account" } }
+    },
+    {
+      "id": "a7de74e4-aa7b-4756-8f1f-15b703979848",
+      "name": "Check briefing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const NL = String.fromCharCode(10);\nconst signals = $('Pick signals').first().json;\nconst ai = $input.first().json;\n\nlet text = ai.merged_response;\nif (typeof text !== 'string' || text.trim() === '') {\n  const parts = Array.isArray(ai.content) ? ai.content : [];\n  text = parts.filter((p) => p && p.type === 'text').map((p) => (typeof p.text === 'string' ? p.text : '')).join('');\n}\nif (typeof text !== 'string' || text.trim() === '') {\n  throw new Error('Briefing check failed: the AI step returned no text');\n}\n\nconst lines = text.split(NL).map((l) => l.trim()).filter((l) => l.length > 0);\nconst problems = [];\n\nif (lines.length > 5) {\n  problems.push('briefing has ' + lines.length + ' lines, limit is 5');\n}\n\nconst found = text.match(/[0-9]+(?:[.][0-9]+)?/g) || [];\nconst unexpected = found.filter((n) => !signals.allowed_numbers.includes(n));\nif (unexpected.length > 0) {\n  problems.push('numbers not in the supplied figures: ' + unexpected.join(', '));\n}\n\nif (!/^[^A-Za-z]*sales angle[ ]*:/i.test(lines[lines.length - 1])) {\n  problems.push('last line does not start with \"Sales angle:\"');\n}\n\nif (problems.length > 0) {\n  throw new Error('Briefing check failed: ' + problems.join('; ') + '. Text was: ' + text);\n}\n\nreturn [{ json: { text: lines.join(NL), line_count: lines.length, month: signals.month } }];"
+      }
+    },
+    {
+      "id": "ef1018be-06b5-4bfa-98d4-c71609429ff9",
+      "name": "Post to #market-signals",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [1440, 300],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "authentication": "accessToken",
+        "select": "channel",
+        "channelId": { "__rl": true, "mode": "id", "value": "C0CKMTH301X", "cachedResultName": "market-signals" },
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": { "includeLinkToWorkflow": false }
+      },
+      "webhookId": "abf399b4-88c6-492c-8131-e53f9ffd02a4",
+      "credentials": { "slackApi": { "id": "LSJx9dkRVYps0QpZ", "name": "Slack bot" } }
+    },
+    {
+      "id": "c459b15c-4b31-429c-91cc-8d2d64ced02e",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [240, 500],
+      "parameters": { "inputSource": "passthrough" }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Get all Ember rows", "type": "main", "index": 0 }]] },
+    "Get all Ember rows": { "main": [[{ "node": "Pick signals", "type": "main", "index": 0 }]] },
+    "Pick signals": { "main": [[{ "node": "Write briefing", "type": "main", "index": 0 }]] },
+    "Write briefing": { "main": [[{ "node": "Check briefing", "type": "main", "index": 0 }]] },
+    "Check briefing": { "main": [[{ "node": "Post to #market-signals", "type": "main", "index": 0 }]] },
+    "When Executed by Another Workflow": { "main": [[{ "node": "Get all Ember rows", "type": "main", "index": 0 }]] }
+  },
+  "meta": { "aiBuilderAssisted": true, "builderVariant": "mcp" }
+}

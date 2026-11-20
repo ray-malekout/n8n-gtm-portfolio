@@ -1,0 +1,50 @@
+{
+  "id": "vhmVpMwdbMp8SRI2",
+  "name": "Ember UK – get month",
+  "active": true,
+  "versionId": "9ccc1ebf-8080-458e-9506-15f08f4879fc",
+  "activeVersionId": "29dd4fad-f7b1-44b0-9da2-2d4fb59888db",
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": true },
+  "nodes": [
+    {
+      "parameters": { "workflowInputs": { "values": [{ "name": "month" }] } },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "id": "bbed953e-3d41-4799-9e3b-646e1518996f",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "Xl0Nu3CRHruvXNfH",
+          "mode": "list",
+          "cachedResultName": "ember_uk_monthly",
+          "cachedResultUrl": "/projects/oig1RE0JOYoLVNzI/datatables/Xl0Nu3CRHruvXNfH"
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [224, 0],
+      "id": "abdb6952-a5a3-4344-b0b9-047f988a8dae",
+      "name": "Get row(s)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const requested = $('When Executed by Another Workflow').first().json.month;\nconst rows = $input.all().map(i => i.json);\n\nconst months = [...new Set(rows.map(r => r.month))].sort();\nconst month = (!requested || requested === 'latest') ? months.at(-1) : requested;\n\nconst result = rows\n  .filter(r => r.month === month)\n  .map(({ key, ...r }) => r)            // drop the internal key\n  .sort((a, b) => (b.share_change_pts ?? 0) - (a.share_change_pts ?? 0));\n\nif (result.length === 0) {\n  return [{ json: { error: `No data for ${month}. Available: ${months[0]} to ${months.at(-1)}` } }];\n}\nreturn [{ json: { month, rows: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [448, 0],
+      "id": "2546303d-3c95-4310-b642-8e51d0f0ccf9",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "When Executed by Another Workflow": { "main": [[{ "node": "Get row(s)", "type": "main", "index": 0 }]] },
+    "Get row(s)": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] }
+  },
+  "meta": null
+}

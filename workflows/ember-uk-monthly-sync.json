@@ -1,0 +1,117 @@
+{
+  "id": "NK0U48YW9tuqvJan",
+  "name": "Ember UK – monthly sync",
+  "active": true,
+  "versionId": "db71e06d-0ea2-4075-b436-7b047591b400",
+  "activeVersionId": "5d522283-eff2-40d6-9750-db62b363d542",
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": true },
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "42d2a354-49fc-4eaf-b1cf-136f1fcc6b60",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "months", "triggerAtDayOfMonth": 10, "triggerAtHour": 9 }] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [0, -112],
+      "id": "df3bd248-93d6-4a4f-9ce4-0ffa11edef15",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.ember-energy.org/v1/electricity-generation/monthly",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "entity_code", "value": "GBR" },
+            { "name": "start_date", "value": "2025-01" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [288, -64],
+      "id": "e46a41ea-681f-4632-807e-4b067f044dcb",
+      "name": "HTTP Request",
+      "credentials": { "httpQueryAuth": { "id": "JiHtwi9rtvtDQl6i", "name": "Ember API Query Auth account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten Ember's response (handles both one item with a `data` array, or pre-split items)\nconst raw = $input.all().flatMap(item => item.json.data ?? [item.json]);\n\nconst rows = raw.map(r => ({\n  month: r.date.slice(0, 7),            // \"2026-09-01\" -> \"2026-09\"\n  series: r.series,\n  generation_twh: r.generation_twh,\n  share_pct: r.share_of_generation_pct,\n}));\n\n// Group by series, sort by month, calculate change vs previous month\nconst round = x => Math.round(x * 100) / 100;\nconst bySeries = {};\nfor (const r of rows) (bySeries[r.series] ??= []).push(r);\n\nconst out = [];\nfor (const [series, list] of Object.entries(bySeries)) {\n  list.sort((a, b) => a.month.localeCompare(b.month));\n  list.forEach((r, i) => {\n    const prev = list[i - 1];\n    out.push({\n      json: {\n        key: `${r.month}|${series}`,\n        ...r,\n        prev_month: prev ? prev.month : null,\n        share_change_pts: prev ? round(r.share_pct - prev.share_pct) : null,\n        twh_change: prev ? round(r.generation_twh - prev.generation_twh) : null,\n      },\n    });\n  });\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [512, -144],
+      "id": "67ffa1c1-3765-4abd-9e51-202cc4632215",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "Xl0Nu3CRHruvXNfH",
+          "mode": "list",
+          "cachedResultName": "ember_uk_monthly",
+          "cachedResultUrl": "/projects/oig1RE0JOYoLVNzI/datatables/Xl0Nu3CRHruvXNfH"
+        },
+        "filters": { "conditions": [{ "keyName": "key", "keyValue": "={{ $json.key }}" }] },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            { "id": "key", "displayName": "key", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "month", "displayName": "month", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "series", "displayName": "series", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "generation_twh", "displayName": "generation_twh", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
+            { "id": "share_pct", "displayName": "share_pct", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
+            { "id": "prev_month", "displayName": "prev_month", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
+            { "id": "share_change_pts", "displayName": "share_change_pts", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
+            { "id": "twh_change", "displayName": "twh_change", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [640, 32],
+      "id": "1fc7ed0a-7282-4a41-bf48-969ad454eeba",
+      "name": "Upsert row(s)"
+    },
+    {
+      "id": "1c37528d-8455-4708-988e-d2deaf0b23f0",
+      "name": "Run Slack briefing",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [880, 32],
+      "parameters": {
+        "source": "database",
+        "workflowId": { "__rl": true, "mode": "id", "value": "D79IxkAzpmEklwwH", "cachedResultName": "Ember UK – Slack briefing" },
+        "mode": "once",
+        "options": { "waitForSubWorkflow": true }
+      },
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "When clicking ‘Execute workflow’": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
+    "HTTP Request": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] },
+    "Code in JavaScript": { "main": [[{ "node": "Upsert row(s)", "type": "main", "index": 0 }]] },
+    "Upsert row(s)": { "main": [[{ "node": "Run Slack briefing", "type": "main", "index": 0 }]] }
+  },
+  "meta": { "aiBuilderAssisted": true, "builderVariant": "mcp" }
+}

@@ -1,0 +1,24 @@
+# Secrets and environment files
+.env
+.env.*
+*.env
+
+# n8n credential exports (never commit decrypted or encrypted credentials)
+credentials.json
+credentials/
+*.credentials.json
+*-credentials.json
+*_credentials.json
+n8n-credentials*
+
+# OS junk
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Claude Code local settings
+.claude/settings.local.json
