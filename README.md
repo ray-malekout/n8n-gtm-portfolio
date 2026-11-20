@@ -9,7 +9,7 @@ GTM automation on a self-hosted n8n: UK grid data from Ember becomes market sign
 | Ember UK – monthly sync | Published; schedule day 10 of each month, 09:00. **Draft now has the "Run Slack briefing" step; the active (scheduled) version does not yet** | `workflows/ember-uk-monthly-sync.json` (draft state) |
 | Ember UK – get month | Published (agent lookup tool). **Draft has the row-limit fix; the active version the agent uses does not yet** | `workflows/ember-uk-get-month.json` (draft state) |
 | **Ember UK – Slack briefing** (phase 1) | Tested, **unpublished**. Has two triggers: Manual and "When Executed by Another Workflow" | `workflows/ember-uk-slack-briefing.json` |
-| **Ember UK – HubSpot signal tasks** (phase 2) | Built; **test mode tested (2 companies), full run (12) not yet run**. Unpublished. Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
+| **Ember UK – HubSpot signal tasks** (phase 2) | Built; **test mode tested twice (2 companies, test tasks deleted), full run (12) awaiting approval**. Unpublished. Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
 
 **Draft vs active:** n8n runs the *active* (published) version for schedules and for the agent. Edits are saved as drafts until published. Publishing needs to be done by the owner; see "Pending publishes" below. The export files show the draft, which is what manual runs use.
 
@@ -151,6 +151,29 @@ Signals match the known-good values: Clean 72.25 (change -1.61), Solar 5.38 (cha
 - Execution 24 (immediate re-run): 0 created, both skipped as existing. The association read also confirmed both tasks are linked to their companies.
 - The service key's scopes were sufficient for company read, property read, task read, association read and task create.
 
+### Prompt change: rep-facing notes
+
+The first talking points mixed voices ("your customer" / "their") and the Solar one implied a customer's sunny hours were shrinking because the national solar share fell. The system prompt and segment guidance now say: the note is for the rep, sentence 1 is the market fact using only the given figures, sentence 2 tells the rep what to raise with "these customers" and why it follows, and a grid share must never be presented as a change to a customer's own assets, output or bills. The figures rules and the check node are unchanged. Backup of the previous version: the committed export in `29fa23a`.
+
+Test, execution 28 (test mode, new wording), passed the check node:
+
+> **Battery storage prospect:** In October 2026 gas supplied 25.82% of UK electricity generation, up 1.8 percentage points on the previous month, while the Clean share fell 1.61 percentage points to 72.25%. Lead with storage as a way for these customers to gain flexibility and arbitrage against grid price swings, since a rising gas share points to greater exposure to gas-driven pricing.
+>
+> **Solar customer:** Solar's share of UK electricity generation in October 2026 was 5.38%, down 2.62 percentage points on the previous month, while gas rose 1.8 percentage points to a 25.82% share. Raise battery storage with these customers as a way to shift and store the power they generate, so they are less tied to the times when the grid leans more on other sources such as gas.
+
+### Stubbed test of the "When Executed by Another Workflow" path
+
+Run with `test_workflow` and pin data: every HubSpot, Anthropic and task-create node was stubbed, so nothing was written. The stub had 3 in-scope companies (2 Battery, 1 Solar) plus 1 with a blank Segment, so the two modes give different counts.
+
+| Execution | Input from caller | `test_mode` | Companies processed |
+|---|---|---|---|
+| 25 | `{}` (not passed) | `false` | 3 of 3 in scope |
+| 26 | `{ "test_mode": true }` | `true` | 2 (one from each of 2 segments) |
+
+### Test-data cleanup
+
+Test tasks are removed with a throwaway workflow that first reads each task and refuses to delete anything whose title does not start with "Market signal: ". Deleted: 550375678184 and 550374717672 (execution 27, before the prompt change), then 550382279882 and 550382203123 (execution 29, the wording check). The cleanup workflow is archived. HubSpot currently has no "Market signal" tasks from this work; the full 12-company run is still pending approval.
+
 ### Pending publishes (not done)
 
 n8n schedules and the agent run the active version, and these three have changes only in draft:
@@ -184,7 +207,7 @@ The first export of this workflow was rebuilt from the code I used to create it.
 ## Files
 
 - `workflows/ember-uk-slack-briefing.json`: current live export (import into n8n via Import from file)
-- `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; all 8 Code nodes and the system prompt were checked identical to the source submitted to n8n
+- `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; checked against the source submitted to n8n (7 of 8 Code nodes identical; the two nodes changed by the prompt change were copied from the live output)
 - `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: live exports of the existing workflows
 - Backups taken before edits:
   - `ember-uk-slack-briefing.backup-before-tweaks.json`: state before the "%" and channel-ID changes (hand-copied from the live output at the time, before the live-export rule)
