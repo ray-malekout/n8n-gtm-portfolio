@@ -3,7 +3,7 @@
   "name": "Ember UK – monthly sync",
   "active": true,
   "versionId": "db71e06d-0ea2-4075-b436-7b047591b400",
-  "activeVersionId": "5d522283-eff2-40d6-9750-db62b363d542",
+  "activeVersionId": "db71e06d-0ea2-4075-b436-7b047591b400",
   "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": true },
   "nodes": [
     {
@@ -99,7 +99,12 @@
       "position": [880, 32],
       "parameters": {
         "source": "database",
-        "workflowId": { "__rl": true, "mode": "id", "value": "D79IxkAzpmEklwwH", "cachedResultName": "Ember UK – Slack briefing" },
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "D79IxkAzpmEklwwH",
+          "cachedResultName": "Ember UK – Slack briefing"
+        },
         "mode": "once",
         "options": { "waitForSubWorkflow": true }
       },

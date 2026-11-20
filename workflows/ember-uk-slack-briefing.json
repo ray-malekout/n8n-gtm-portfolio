@@ -1,9 +1,9 @@
 {
   "id": "D79IxkAzpmEklwwH",
   "name": "Ember UK – Slack briefing",
-  "active": false,
+  "active": true,
   "versionId": "4abb33b4-ff51-4554-9941-e3409b3a72b2",
-  "activeVersionId": null,
+  "activeVersionId": "4abb33b4-ff51-4554-9941-e3409b3a72b2",
   "settings": { "executionOrder": "v1", "availableInMCP": true },
   "nodes": [
     {
@@ -49,11 +49,7 @@
         "resource": "text",
         "operation": "message",
         "modelId": { "__rl": true, "mode": "id", "value": "claude-sonnet-5-5" },
-        "messages": {
-          "values": [
-            { "role": "user", "content": "=Write the briefing for the figures below.\n\n{{ $json.facts_text }}" }
-          ]
-        },
+        "messages": { "values": [{ "role": "user", "content": "=Write the briefing for the figures below.\n\n{{ $json.facts_text }}" }] },
         "simplify": true,
         "options": {
           "includeMergedResponse": true,

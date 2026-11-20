@@ -261,7 +261,7 @@ The first export of this workflow was rebuilt from the code I used to create it.
 
 - `workflows/ember-uk-slack-briefing.json`: current live export (import into n8n via Import from file)
 - `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; checked against the source submitted to n8n (7 of 8 Code nodes identical; the two nodes changed by the prompt change were copied from the live output)
-- `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: exports of the existing workflows. The sync, get-month and briefing exports were taken before those workflows were published, so their `active` / `activeVersionId` metadata is out of date (the workflows are active now); they were not re-exported in this change
+- `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: live exports of the existing workflows, re-exported after they were published so `active` and `activeVersionId` are current. Compared with the previous exports, the only differences were those publish fields (sync and get-month: `activeVersionId`; briefing: `active` false to true and `activeVersionId`); nodes, code, credentials and connections were unchanged
 - Backups taken before edits:
   - `ember-uk-slack-briefing.backup-before-tweaks.json`: state before the "%" and channel-ID changes (hand-copied from the live output at the time, before the live-export rule)
   - `ember-uk-slack-briefing.backup-before-prompt-change.json`: live export before the sales-angle prompt change
