@@ -6,10 +6,12 @@ GTM automation on a self-hosted n8n: UK grid data from Ember becomes market sign
 
 | Workflow | Status | Export (from live n8n) |
 |---|---|---|
-| Ember UK – monthly sync | **Published** (active version = draft). Schedule day 10 of each month, 09:00, then runs the Slack briefing. Does **not** call the HubSpot workflow | `workflows/ember-uk-monthly-sync.json` |
+| Ember UK – monthly sync | **Draft changed, owner to publish.** The active (published) version is still the old one (upsert, then Slack briefing). The draft adds the "don't repeat a month" guard and the HubSpot step. Schedule day 10 of each month, 09:00 | `workflows/ember-uk-monthly-sync.json` |
 | Ember UK – get month | **Published** (active version = draft), including the row-limit fix. Lookup tool for the "Ember Energy" agent | `workflows/ember-uk-get-month.json` |
 | **Ember UK – Slack briefing** (phase 1) | **Published** (active version = draft). No trigger of its own: runs when the sync calls it; Manual Trigger for testing | `workflows/ember-uk-slack-briefing.json` |
 | **Ember UK – HubSpot signal tasks** (phase 2) | **Tested and run on all 12 companies; not published** (left for the owner to publish). Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
+
+`pipeline_state` (data table, columns `key`, `value`) holds one row, `last_published_month`, used by the sync's guard (see "Phase 2: the guard").
 
 **Draft vs active:** n8n runs the *active* (published) version for schedules and for the agent. Publish state was last checked through the n8n API on 2026-11-20 (see "Publish state" below).
 
@@ -107,6 +109,43 @@ Posted briefing:
 > Nuclear rose to a 13.72% share, up 1.88 percentage points.
 > Gas rose to a 25.82% share, up 1.8 percentage points.
 > Sales angle: Ask business buyers how exposed they are to gas-driven price swings and offer a long-term clean supply contract to steady their costs.
+
+## Phase 2: the "don't repeat a month" guard and the HubSpot step
+
+The sync now only sends something when Ember has a month we have not already sent. Backup before the change: `workflows/ember-uk-monthly-sync.backup-before-guard.json`.
+
+```
+Schedule  -> Settings (schedule): force=false (hard-coded) -+
+Manual    -> Settings (manual):   force=false (editable)  --+-> HTTP Request -> Code -> Upsert row(s)
+  -> Get ember rows -> Get last published -> Check new month -> New month?
+       yes -> Run Slack briefing -> HubSpot input (test_mode=false) -> Run HubSpot signal tasks -> Mark published
+       no  -> No new month ("No new month, nothing sent")
+```
+
+- **State:** data table `pipeline_state` (`key`, `value`), row `last_published_month`, initialised to `2026-10` (October had already been sent).
+- **Check new month** (Code, arithmetic only): latest `month` across all of `ember_uk_monthly` (read with Return All, so no row limit) compared as `YYYY-MM` strings with `last_published_month`. `is_new = force || latest > last`. It throws if the table is empty, a month is malformed, or `pipeline_state` does not hold exactly one `last_published_month` row.
+- **New month:** Slack briefing, then HubSpot (full mode: `test_mode: false` is passed explicitly by a Set node, not left to passthrough), and only then **Mark published** updates `last_published_month`. If either sub-workflow fails the run fails and the row is unchanged, so the next run retries.
+- **No new month:** the run ends successfully with `result: "No new month, nothing sent"`; nothing is posted or created.
+- **force:** each trigger has its own settings node. The schedule's `force` is hard-coded `false` and cannot be changed by editing the manual path. For a manual re-send, set `force` to `true` in "Settings (manual)" (default `false`); the run then bypasses the guard and still updates `last_published_month` afterwards.
+- **Execute Once** is on for every node after the upsert that must run once per sync: Get ember rows, Get last published, Check new month, Run Slack briefing, HubSpot input, Run HubSpot signal tasks, Mark published.
+
+### Bug: item multiplication (found in the first test run)
+
+The first test runs (executions 33, 34, 35, started through MCP) hung and had to be cancelled. Cause: the upsert outputs 352 items, so "Get ember rows" ran once per item and returned 352 rows each time, and "Get last published" then ran once per those items: 352 x 352 = 123,904 items. Nothing had been sent (no downstream node ran), but the run never finished. Fix: Execute Once on both nodes (set by the owner in the UI). My own build had asked for Execute Once on the new nodes, but the update tool silently dropped it, so I re-read the live workflow and found four more nodes without it (Check new month, HubSpot input, Run HubSpot signal tasks, Mark published) and turned it on. Rule added to `CLAUDE.md`: nodes after a multi-item step that should run once per run need Execute Once, and every test run checks item counts per node.
+
+### Test results
+
+`last_published_month` was set to `2026-09` for test (b) by hand in the n8n UI (my MCP tools cannot update data table rows). Known-good values were checked from the table after the runs.
+
+| Test | Execution | Setup | Result |
+|---|---|---|---|
+| a | 36 (run from the UI, schedule path) | `last_published_month` = 2026-10 | `No new month, nothing sent`; no Slack post, no HubSpot tasks |
+| b | 37 (manual) | `last_published_month` = 2026-09 | `is_new: true`; one Slack post; HubSpot full mode: 13 companies fetched, 12 in scope (1 with no Segment skipped), **0 tasks created, 12 skipped** by the duplicate guard; `last_published_month` updated to 2026-10 |
+| c | 40 (manual) | `last_published_month` = 2026-10 | `No new month, nothing sent`; Slack, HubSpot and Mark published did not run |
+
+Item counts per node, executions 37 and 40 (identical up to the guard): trigger 1, Settings 1, HTTP Request 1, Code 352, Upsert 352, Get ember rows 352, Get last published 1, Check new month 1, New month? 1. Execution 37 then: Run Slack briefing 1, HubSpot input 1, Run HubSpot signal tasks 1, Mark published 1. Execution 40 then: No new month 1. Every node ran once. Table rows: 352 (`rows_in_table`). After (b) and after (c) `last_published_month` read back as `2026-10`.
+
+Known-good values still match: 2026-09 Clean share 73.86; 2026-10 Clean change -1.61; 2026-10 Solar change -2.62 (read from `ember_uk_monthly`, and the posted briefing says the same).
 
 ## Phase 2: Ember UK – HubSpot signal tasks
 
@@ -235,7 +274,7 @@ Each body ends with a blank line and "Source: Ember monthly UK generation data".
 | Ember UK – get month | yes | identical (`04921143…`) |
 | Ember UK – HubSpot signal tasks | **no** | never published; draft `b18a93c9…` |
 
-The earlier "pending publishes" list is obsolete: the sync, the briefing and get month were published by the owner, so the scheduled sync on day 10 now runs the Slack briefing and the agent uses the row-limit fix. The HubSpot workflow is intentionally unpublished for the owner to publish. It is **not wired into the monthly sync**: even published, the scheduled sync will not create HubSpot tasks until an Execute Workflow step is added (with "Execute once" on, like the briefing step).
+The earlier "pending publishes" list is obsolete: the sync, the briefing and get month were published by the owner, so the scheduled sync on day 10 now runs the Slack briefing and the agent uses the row-limit fix. The HubSpot workflow is intentionally unpublished for the owner to publish. It is now wired into the sync's draft (see "the guard"), but the scheduled sync only runs it once both the sync draft and the HubSpot workflow are published. The sync's active version is still the old one until the owner publishes it.
 
 ### Live export vs my earlier reconstructed export
 
@@ -246,6 +285,8 @@ The first export of this workflow was rebuilt from the code I used to create it.
 - The Anthropic node (v1) has no option to disable extended thinking, so `maxTokens` stays at 2000 rather than a lower cap. If the node gains that option, 500 would be enough.
 - Real Ember figures are posted to Slack (public grid data, no personal data). The fake-data rule applies to people, contacts and accounts.
 - Published, but it has no trigger of its own: it runs when the monthly sync calls it (or from the Manual Trigger).
+- **Slack may repost.** If Slack succeeds and HubSpot then fails, `last_published_month` is not updated, so the next run reposts the Slack briefing. HubSpot's own duplicate guard prevents duplicate tasks.
+- The guard sends the latest month in the table. If Ember skips a month and publishes two at once, only the latest is briefed.
 
 ## Known issues in the existing system
 
@@ -261,11 +302,13 @@ The first export of this workflow was rebuilt from the code I used to create it.
 
 - `workflows/ember-uk-slack-briefing.json`: current live export (import into n8n via Import from file)
 - `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; checked against the source submitted to n8n (7 of 8 Code nodes identical; the two nodes changed by the prompt change were copied from the live output)
-- `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: live exports of the existing workflows, re-exported after they were published so `active` and `activeVersionId` are current. Compared with the previous exports, the only differences were those publish fields (sync and get-month: `activeVersionId`; briefing: `active` false to true and `activeVersionId`); nodes, code, credentials and connections were unchanged
+- `workflows/ember-uk-monthly-sync.json`: export of the live draft after the guard change (`versionId` `e0da0efd…`), hand-copied from the live `get_workflow_details` output (16 nodes, 7 with Execute Once, all connections checked). Only difference from the raw live output: the two Execute Workflow nodes' default parameters (`source: database`, `mode: once`) are not written out
+- `workflows/ember-uk-get-month.json`: live exports of the existing workflows, re-exported after they were published so `active` and `activeVersionId` are current. Compared with the previous exports, the only differences were those publish fields (sync and get-month: `activeVersionId`; briefing: `active` false to true and `activeVersionId`); nodes, code, credentials and connections were unchanged
 - Backups taken before edits:
   - `ember-uk-slack-briefing.backup-before-tweaks.json`: state before the "%" and channel-ID changes (hand-copied from the live output at the time, before the live-export rule)
   - `ember-uk-slack-briefing.backup-before-prompt-change.json`: live export before the sales-angle prompt change
   - `ember-uk-slack-briefing.backup-before-execute-trigger.json`: live export of the briefing before the second trigger was added
   - `ember-uk-monthly-sync.backup-before-briefing-step.json`: live export of the sync before the briefing step was added
+  - `ember-uk-monthly-sync.backup-before-guard.json`: sync before the guard and HubSpot step (identical to the live workflow at the time; compared node by node)
   - `ember-uk-get-month.backup-before-row-limit-fix.json`: live export of get month before Return All was turned on
 - `CLAUDE.md`: project rules

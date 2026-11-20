@@ -20,3 +20,4 @@ UK grid data (Ember) → market signals → Slack briefings and HubSpot tasks fo
 - Always export from the live n8n workflow (fetch it with get_workflow_details at that moment). Never reconstruct an export from earlier code, memory or an older file. If the file has to be hand-copied from the live output, diff it against the live data and report any differences
 - Use fake data only in HubSpot and Slack
 - Commit after each finished, tested change, with a clear message that says what changed and why. Scan the files for API keys and tokens before every commit, and show me anything suspicious instead of committing it
+- Nodes after a multi-item step (e.g. the 352-row upsert) that should run once per workflow run must have Execute Once on. Check item counts per node in every test run, and report them

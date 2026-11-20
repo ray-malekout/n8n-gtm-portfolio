@@ -2,25 +2,43 @@
   "id": "NK0U48YW9tuqvJan",
   "name": "Ember UK – monthly sync",
   "active": true,
-  "versionId": "db71e06d-0ea2-4075-b436-7b047591b400",
+  "versionId": "e0da0efd-6566-41d1-b8ef-7b002452c1fb",
   "activeVersionId": "db71e06d-0ea2-4075-b436-7b047591b400",
-  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": true },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
   "nodes": [
     {
       "parameters": {},
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "id": "42d2a354-49fc-4eaf-b1cf-136f1fcc6b60",
       "name": "When clicking ‘Execute workflow’"
     },
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "months", "triggerAtDayOfMonth": 10, "triggerAtHour": 9 }] }
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtDayOfMonth": 10,
+              "triggerAtHour": 9
+            }
+          ]
+        }
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.4,
-      "position": [0, -112],
+      "position": [
+        0,
+        -112
+      ],
       "id": "df3bd248-93d6-4a4f-9ce4-0ffa11edef15",
       "name": "Schedule Trigger"
     },
@@ -32,18 +50,32 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "entity_code", "value": "GBR" },
-            { "name": "start_date", "value": "2025-01" }
+            {
+              "name": "entity_code",
+              "value": "GBR"
+            },
+            {
+              "name": "start_date",
+              "value": "2025-01"
+            }
           ]
         },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
-      "position": [288, -64],
+      "position": [
+        288,
+        -64
+      ],
       "id": "e46a41ea-681f-4632-807e-4b067f044dcb",
       "name": "HTTP Request",
-      "credentials": { "httpQueryAuth": { "id": "JiHtwi9rtvtDQl6i", "name": "Ember API Query Auth account" } }
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "JiHtwi9rtvtDQl6i",
+          "name": "Ember API Query Auth account"
+        }
+      }
     },
     {
       "parameters": {
@@ -51,7 +83,10 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [512, -144],
+      "position": [
+        512,
+        -144
+      ],
       "id": "67ffa1c1-3765-4abd-9e51-202cc4632215",
       "name": "Code in JavaScript"
     },
@@ -65,20 +100,99 @@
           "cachedResultName": "ember_uk_monthly",
           "cachedResultUrl": "/projects/oig1RE0JOYoLVNzI/datatables/Xl0Nu3CRHruvXNfH"
         },
-        "filters": { "conditions": [{ "keyName": "key", "keyValue": "={{ $json.key }}" }] },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
         "columns": {
           "mappingMode": "autoMapInputData",
           "value": {},
           "matchingColumns": [],
           "schema": [
-            { "id": "key", "displayName": "key", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
-            { "id": "month", "displayName": "month", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
-            { "id": "series", "displayName": "series", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
-            { "id": "generation_twh", "displayName": "generation_twh", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
-            { "id": "share_pct", "displayName": "share_pct", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
-            { "id": "prev_month", "displayName": "prev_month", "required": false, "defaultMatch": false, "display": true, "type": "string", "readOnly": false, "removed": false },
-            { "id": "share_change_pts", "displayName": "share_change_pts", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false },
-            { "id": "twh_change", "displayName": "twh_change", "required": false, "defaultMatch": false, "display": true, "type": "number", "readOnly": false, "removed": false }
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "month",
+              "displayName": "month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "series",
+              "displayName": "series",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "generation_twh",
+              "displayName": "generation_twh",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "share_pct",
+              "displayName": "share_pct",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "prev_month",
+              "displayName": "prev_month",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "share_change_pts",
+              "displayName": "share_change_pts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "twh_change",
+              "displayName": "twh_change",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
@@ -87,36 +201,485 @@
       },
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [640, 32],
+      "position": [
+        640,
+        32
+      ],
       "id": "1fc7ed0a-7282-4a41-bf48-969ad454eeba",
       "name": "Upsert row(s)"
     },
     {
-      "id": "1c37528d-8455-4708-988e-d2deaf0b23f0",
-      "name": "Run Slack briefing",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.4,
-      "position": [880, 32],
       "parameters": {
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "D79IxkAzpmEklwwH",
           "cachedResultName": "Ember UK – Slack briefing"
         },
-        "mode": "once",
-        "options": { "waitForSubWorkflow": true }
+        "options": {
+          "waitForSubWorkflow": true
+        }
       },
+      "id": "1c37528d-8455-4708-988e-d2deaf0b23f0",
+      "name": "Run Slack briefing",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1104,
+        -96
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "force-sched",
+              "name": "force",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1b91069b-1005-40b9-91ad-15cbd41fad03",
+      "name": "Settings (schedule)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "force-manual",
+              "name": "force",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e024affc-06e8-43c9-adf3-9a33cd5c3464",
+      "name": "Settings (manual)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "Xl0Nu3CRHruvXNfH",
+          "mode": "list",
+          "cachedResultName": "ember_uk_monthly"
+        },
+        "matchType": "allConditions",
+        "returnAll": true
+      },
+      "id": "2a87c0a5-a10b-4999-8d21-d945d2e5763d",
+      "name": "Get ember rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        32
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "jU1WR9h36OPTAFGg",
+          "mode": "list",
+          "cachedResultName": "pipeline_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "last_published_month"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "f7c5e78c-30ea-4c43-b401-8427bf9c94d0",
+      "name": "Get last published",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1104,
+        32
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $('Get ember rows').all().map((i) => i.json);\nif (rows.length === 0) {\n  throw new Error('ember_uk_monthly returned no rows');\n}\nconst re = /^\\d{4}-\\d{2}$/;\nconst bad = rows.filter((r) => typeof r.month !== 'string' || !re.test(r.month));\nif (bad.length > 0) {\n  throw new Error(bad.length + ' rows have a missing or malformed month');\n}\nconst latest = rows.reduce((a, r) => (r.month > a ? r.month : a), rows[0].month);\n\nconst st = $('Get last published').all().map((i) => i.json);\nif (st.length !== 1) {\n  throw new Error('Expected exactly one last_published_month row in pipeline_state, found ' + st.length);\n}\nconst last = st[0].value;\nif (typeof last !== 'string' || !re.test(last)) {\n  throw new Error('last_published_month is missing or malformed: ' + JSON.stringify(last));\n}\n\nlet force = false;\nfor (const n of ['Settings (schedule)', 'Settings (manual)']) {\n  try {\n    const s = $(n).first();\n    if (s && s.json.force === true) force = true;\n  } catch (e) {}\n}\n\nreturn [{ json: { is_new: force || latest > last, force: force, latest_month: latest, last_published_month: last, rows_in_table: rows.length } }];"
+      },
+      "id": "f259620d-259f-4751-8b4b-d92dceef4644",
+      "name": "Check new month",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        32
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-new",
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ce175588-8e81-4298-ba02-e64f181e4b2a",
+      "name": "New month?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1552,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "r1",
+              "name": "result",
+              "value": "No new month, nothing sent",
+              "type": "string"
+            },
+            {
+              "id": "r2",
+              "name": "latest_month",
+              "value": "={{ $json.latest_month }}",
+              "type": "string"
+            },
+            {
+              "id": "r3",
+              "name": "last_published_month",
+              "value": "={{ $json.last_published_month }}",
+              "type": "string"
+            },
+            {
+              "id": "r4",
+              "name": "force",
+              "value": "={{ $json.force }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a50382ce-5974-4f84-afc4-9933b7bdbc75",
+      "name": "No new month",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1760,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tm",
+              "name": "test_mode",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1bdb613d-725b-4c23-ad24-dce154d5b687",
+      "name": "HubSpot input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        -96
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "yyzC9xwGgdR7M2rn",
+          "cachedResultName": "Ember UK – HubSpot signal tasks"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "39c84e69-d461-4fb9-b65c-918b2016d0e7",
+      "name": "Run HubSpot signal tasks",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1552,
+        -96
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "jU1WR9h36OPTAFGg",
+          "mode": "list",
+          "cachedResultName": "pipeline_state"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "keyValue": "last_published_month"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "value": "={{ $('Check new month').first().json.latest_month }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "value",
+              "displayName": "value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b5c61943-6815-4601-a581-12ddbe9a03e8",
+      "name": "Mark published",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -96
+      ],
       "executeOnce": true
     }
   ],
   "connections": {
-    "Schedule Trigger": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
-    "When clicking ‘Execute workflow’": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] },
-    "HTTP Request": { "main": [[{ "node": "Code in JavaScript", "type": "main", "index": 0 }]] },
-    "Code in JavaScript": { "main": [[{ "node": "Upsert row(s)", "type": "main", "index": 0 }]] },
-    "Upsert row(s)": { "main": [[{ "node": "Run Slack briefing", "type": "main", "index": 0 }]] }
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Upsert row(s)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Settings (schedule)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Settings (manual)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings (schedule)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings (manual)": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert row(s)": {
+      "main": [
+        [
+          {
+            "node": "Get ember rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get ember rows": {
+      "main": [
+        [
+          {
+            "node": "Get last published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get last published": {
+      "main": [
+        [
+          {
+            "node": "Check new month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check new month": {
+      "main": [
+        [
+          {
+            "node": "New month?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New month?": {
+      "main": [
+        [
+          {
+            "node": "Run Slack briefing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No new month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Slack briefing": {
+      "main": [
+        [
+          {
+            "node": "HubSpot input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot input": {
+      "main": [
+        [
+          {
+            "node": "Run HubSpot signal tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run HubSpot signal tasks": {
+      "main": [
+        [
+          {
+            "node": "Mark published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "meta": { "aiBuilderAssisted": true, "builderVariant": "mcp" }
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
 }
