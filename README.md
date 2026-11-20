@@ -1,19 +1,19 @@
 # n8n GTM portfolio
 
-GTM automation on a self-hosted n8n: UK grid data from Ember becomes market signals, then Slack briefings (and later HubSpot tasks) for a cleantech sales team. Project rules are in `CLAUDE.md`.
+GTM automation on a self-hosted n8n: UK grid data from Ember becomes market signals, then Slack briefings and HubSpot tasks for a cleantech sales team. Project rules are in `CLAUDE.md`.
 
 ## Workflows
 
 | Workflow | Status | Export (from live n8n) |
 |---|---|---|
-| Ember UK – monthly sync | Published; schedule day 10 of each month, 09:00. **Draft now has the "Run Slack briefing" step; the active (scheduled) version does not yet** | `workflows/ember-uk-monthly-sync.json` (draft state) |
-| Ember UK – get month | Published (agent lookup tool). **Draft has the row-limit fix; the active version the agent uses does not yet** | `workflows/ember-uk-get-month.json` (draft state) |
-| **Ember UK – Slack briefing** (phase 1) | Tested, **unpublished**. Has two triggers: Manual and "When Executed by Another Workflow" | `workflows/ember-uk-slack-briefing.json` |
-| **Ember UK – HubSpot signal tasks** (phase 2) | Built; **test mode tested twice (2 companies, test tasks deleted), full run (12) awaiting approval**. Unpublished. Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
+| Ember UK – monthly sync | **Published** (active version = draft). Schedule day 10 of each month, 09:00, then runs the Slack briefing. Does **not** call the HubSpot workflow | `workflows/ember-uk-monthly-sync.json` |
+| Ember UK – get month | **Published** (active version = draft), including the row-limit fix. Lookup tool for the "Ember Energy" agent | `workflows/ember-uk-get-month.json` |
+| **Ember UK – Slack briefing** (phase 1) | **Published** (active version = draft). No trigger of its own: runs when the sync calls it; Manual Trigger for testing | `workflows/ember-uk-slack-briefing.json` |
+| **Ember UK – HubSpot signal tasks** (phase 2) | **Tested and run on all 12 companies; not published** (left for the owner to publish). Two triggers: Manual (test mode on) and "When Executed by Another Workflow" (test mode off unless the caller passes it) | `workflows/ember-uk-hubspot-signal-tasks.json` |
 
-**Draft vs active:** n8n runs the *active* (published) version for schedules and for the agent. Edits are saved as drafts until published. Publishing needs to be done by the owner; see "Pending publishes" below. The export files show the draft, which is what manual runs use.
+**Draft vs active:** n8n runs the *active* (published) version for schedules and for the agent. Publish state was last checked through the n8n API on 2026-11-20 (see "Publish state" below).
 
-All three exports were checked for secrets: only credential names and IDs appear (`Ember API Query Auth account`, `Anthropic account`, `Slack bot`). No keys or tokens are stored in any node.
+All four exports were checked for secrets: only credential names and IDs appear (`Ember API Query Auth account`, `Anthropic account`, `Slack bot`, `HubSpot Sandbox`). No keys or tokens are stored in any node.
 
 **Export rule:** exports are always taken from the live workflow (`get_workflow_details`), never reconstructed. See `CLAUDE.md`.
 
@@ -172,17 +172,70 @@ Run with `test_workflow` and pin data: every HubSpot, Anthropic and task-create 
 
 ### Test-data cleanup
 
-Test tasks are removed with a throwaway workflow that first reads each task and refuses to delete anything whose title does not start with "Market signal: ". Deleted: 550375678184 and 550374717672 (execution 27, before the prompt change), then 550382279882 and 550382203123 (execution 29, the wording check). The cleanup workflow is archived. HubSpot currently has no "Market signal" tasks from this work; the full 12-company run is still pending approval.
+Test tasks were removed with a throwaway workflow that first read each task and refused to delete anything whose title did not start with "Market signal: ". Deleted: 550375678184 and 550374717672 (execution 27, before the prompt change), then 550382279882 and 550382203123 (execution 29, the wording check). That cleanup workflow is archived, as is the read-only verifier used for the full run (below).
 
-### Pending publishes (not done)
+### Full run on all 12 companies (execution 30, 2026-11-20)
 
-n8n schedules and the agent run the active version, and these three have changes only in draft:
+Manual path temporarily set to `test_mode = false` for the run, then set back to `true` and confirmed by reading the live workflow (version `b18a93c9…`). It was set to `false` once more for the duplicate-guard re-run (execution 32), set back to `true`, and confirmed again by reading the live workflow (final version `8c68e6b5…`). The committed export has `test_mode = true` on the manual path.
 
-1. **Ember UK – Slack briefing** must be published, otherwise a scheduled sync cannot call it.
-2. **Ember UK – monthly sync** must be published, otherwise the scheduled run on the 10th still uses the old version without the briefing step.
-3. **Ember UK – get month** must be published for the row-limit fix to reach the "Ember Energy" agent. Version history shows its draft differs from the active version only by this fix (no other node or connection differences).
+Run summary: `test_mode` false, 13 companies fetched, **12 in scope**, 1 skipped for a blank Segment (the HubSpot sample company), 12 processed, **12 tasks created**, 0 skipped. Title "Market signal: October 2026", due 2026-11-23, no owner. Segment split: Solar customer 4, Battery storage prospect 3, Energy-intensive manufacturer 3, EV fleet operator 2.
 
-Publishing was attempted for get month and denied by the permission system, so nothing has been published.
+| Company | Segment | Task id |
+|---|---|---|
+| Corvid Data Centres | Battery storage prospect | 550315856078 |
+| Ashcombe Retail Parks | Battery storage prospect | 550382293201 |
+| Pennine Steel Fabrication | Battery storage prospect | 549955471585 |
+| Meadowbank Farms | Solar customer | 550382293200 |
+| Northgate Cold Storage | Solar customer | 550383018199 |
+| Clydeside Brewing | Solar customer | 550369257668 |
+| Fellside Hotels | Solar customer | 550382370001 |
+| Ridgeway Couriers | EV fleet operator | 550359177431 |
+| Harbourline Logistics | EV fleet operator | 550365808846 |
+| Tamar Glassworks | Energy-intensive manufacturer | 550337278163 |
+| Brightwell Foods | Energy-intensive manufacturer | 550001279208 |
+| Kestrel Plastics | Energy-intensive manufacturer | 549943069931 |
+
+Bodies as stored in HubSpot (the talking point is generated once per segment and reused):
+
+> **Battery storage prospect:** In October 2026 gas supplied 25.82% of UK electricity generation, up 1.8 percentage points on the previous month, while the Clean share fell 1.61 percentage points to 72.25%. Lead with storage as a way for these customers to gain flexibility and arbitrage, because a grid leaning more on gas leaves them more exposed to price swings that a battery can help them manage.
+>
+> **Solar customer:** In October 2026, solar's share of UK electricity generation was 5.38%, down 2.62 percentage points on the previous month, while gas rose 1.8 percentage points to 25.82%. Raise battery storage with these customers as a way to shift and store the power they generate, so they are less tied to the times when the grid is leaning on other sources such as gas.
+>
+> **EV fleet operator:** Clean share of UK electricity generation was 72.25% in October 2026, down 1.61 percentage points on the previous month, while Gas rose 1.8 percentage points to a 25.82% share. Raise smart and off-peak charging with these customers, because a grid leaning a little more on gas makes the timing of charging matter more for both carbon and cost, and scheduling it into cleaner, cheaper periods is how they can manage that exposure.
+>
+> **Energy-intensive manufacturer:** In October 2026 gas supplied 25.82% of UK electricity generation, up 1.8 percentage points on the previous month, while the clean share fell 1.61 percentage points to 72.25%. Raise long-term clean supply contracts and demand flexibility with these customers, because a larger gas share on the grid means more exposure to gas-linked price swings and these options reduce that exposure.
+
+Each body ends with a blank line and "Source: Ember monthly UK generation data".
+
+**Verified in HubSpot (execution 31, read-only):** a search for tasks titled "Market signal: October 2026" returned exactly 12; each is linked to exactly one company (association type 192 on the task side, 191 on the company side); each of the 12 companies has exactly one; the sample "HubSpot" company has none; every body has the source line.
+
+**Duplicate guard in full mode (execution 32):** immediate re-run with `test_mode = false`: **0 created, 12 skipped as existing**, each skipped company pointing at its existing task id. The re-run generated different wording (the AI runs every time) but, correctly, nothing was written; the tasks in HubSpot keep the execution-30 wording.
+
+### Run log (phase 2)
+
+| Execution | What | Result |
+|---|---|---|
+| 22 | Read-only stage 1 (signals, Segment property, companies) in a scratch workflow, since archived | OK. Found 13 companies, one with a blank Segment |
+| 23 | Test mode, 2 companies | 2 tasks created (first wording) |
+| 24 | Immediate re-run | 0 created, 2 skipped |
+| 25, 26 | Stubbed `test_workflow` of the "When Executed by Another Workflow" path | `test_mode` false when not passed, true when passed |
+| 27 | Cleanup of the first 2 tasks | 2 deleted |
+| 28 | Test mode with the rep-facing prompt | 2 tasks created, check passed |
+| 29 | Cleanup of those 2 | 2 deleted |
+| 30 | **Full run, `test_mode = false`** | **12 created** |
+| 31 | Read-only verification in HubSpot | 12 tasks, one per company, all linked |
+| 32 | Re-run, `test_mode = false` | 0 created, 12 skipped |
+
+### Publish state (checked via the API, 2026-11-20)
+
+| Workflow | Active | Draft vs active version |
+|---|---|---|
+| Ember UK – monthly sync | yes (1 schedule trigger) | identical (`versionId` = `activeVersionId` = `db71e06d…`) |
+| Ember UK – Slack briefing | yes | identical (`4abb33b4…`) |
+| Ember UK – get month | yes | identical (`04921143…`) |
+| Ember UK – HubSpot signal tasks | **no** | never published; draft `b18a93c9…` |
+
+The earlier "pending publishes" list is obsolete: the sync, the briefing and get month were published by the owner, so the scheduled sync on day 10 now runs the Slack briefing and the agent uses the row-limit fix. The HubSpot workflow is intentionally unpublished for the owner to publish. It is **not wired into the monthly sync**: even published, the scheduled sync will not create HubSpot tasks until an Execute Workflow step is added (with "Execute once" on, like the briefing step).
 
 ### Live export vs my earlier reconstructed export
 
@@ -192,15 +245,15 @@ The first export of this workflow was rebuilt from the code I used to create it.
 
 - The Anthropic node (v1) has no option to disable extended thinking, so `maxTokens` stays at 2000 rather than a lower cap. If the node gains that option, 500 would be enough.
 - Real Ember figures are posted to Slack (public grid data, no personal data). The fake-data rule applies to people, contacts and accounts.
-- Not published and no schedule yet; it runs from the Manual Trigger only.
+- Published, but it has no trigger of its own: it runs when the monthly sync calls it (or from the Manual Trigger).
 
 ## Known issues in the existing system
 
-- **"Ember UK – get month" returned only part of a month (fixed in draft, not yet published).**
+- **"Ember UK – get month" returned only part of a month (fixed and published).**
   - *How it was found:* while exporting the workflow I noticed its "Get row(s)" node had no Return All set, so n8n's default limit of 50 rows applies to a 352-row table. I then read the output of its last run, execution 14 (month 2026-10): the result held only **2 of the 16 rows** (Bioenergy and Clean). Solar, Nuclear and Gas were missing, so the "Ember Energy" agent could not see them. The run still reported success, which is why nothing flagged it.
   - *Fix:* Return All switched on in "Get row(s)" (backup: `ember-uk-get-month.backup-before-row-limit-fix.json`).
   - *Verification:* test execution 18 for 2026-10 returned **16 rows**, including Solar -2.62, Nuclear 1.88, Gas 1.8 and Clean -1.61 (changes match the known-good values; Clean share for 2026-10 is 72.25).
-  - *Still to do:* publish the workflow so the agent gets the fix (see Pending publishes).
+  - *Published:* the fix is in the active version (checked via the API, see Publish state). A run of the agent against the published version has not been repeated here.
   - *Lesson (already in `CLAUDE.md`):* default row limits fail silently, so check the row count of any data table read.
 - The monthly sync shows 1 failed run out of 7 (execution 4) from before this work, not investigated.
 
@@ -208,7 +261,7 @@ The first export of this workflow was rebuilt from the code I used to create it.
 
 - `workflows/ember-uk-slack-briefing.json`: current live export (import into n8n via Import from file)
 - `workflows/ember-uk-hubspot-signal-tasks.json`: phase 2 export, hand-copied from the live `get_workflow_details` output; checked against the source submitted to n8n (7 of 8 Code nodes identical; the two nodes changed by the prompt change were copied from the live output)
-- `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: live exports of the existing workflows
+- `workflows/ember-uk-monthly-sync.json`, `workflows/ember-uk-get-month.json`: exports of the existing workflows. The sync, get-month and briefing exports were taken before those workflows were published, so their `active` / `activeVersionId` metadata is out of date (the workflows are active now); they were not re-exported in this change
 - Backups taken before edits:
   - `ember-uk-slack-briefing.backup-before-tweaks.json`: state before the "%" and channel-ID changes (hand-copied from the live output at the time, before the live-export rule)
   - `ember-uk-slack-briefing.backup-before-prompt-change.json`: live export before the sales-angle prompt change
