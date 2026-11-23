@@ -2,7 +2,7 @@
 One-line: Turns monthly UK electricity data into segment-specific sales
 signals for a cleantech sales team — posted to Slack and created as HubSpot tasks.
 
-## The problem (3–4 lines)
+## The problem
 Sales teams selling storage/flexibility need timely, relevant reasons to reach out.
 Market data exists but nobody turns it into "what to say to which customer".
 
@@ -18,7 +18,7 @@ Market data exists but nobody turns it into "what to say to which customer".
 - One AI call per segment, not per account (cost + consistency)
 - Duplicate and "same month" guards so re-runs never double-post
 
-## Problems found and fixed (3 best)
+## Problems found and fixed
 - Lookup silently returned 2 of 16 rows → found by testing against known values
 - Agent quoted the wrong row from 150 near-identical ones → restructured its input
 - A step ran 123,904 times (352²) → diagnosed from item counts
