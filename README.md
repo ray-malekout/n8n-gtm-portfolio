@@ -1,5 +1,5 @@
 # UK Grid Market Signals → Sales Actions
-One-line: Turns monthly UK electricity data into segment-specific sales
+Turns monthly UK electricity data into segment-specific sales
 signals for a cleantech sales team — posted to Slack and created as HubSpot tasks.
 
 ## The problem
